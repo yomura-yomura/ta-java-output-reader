@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import argparse
-import tale_java
+import tajava.reader.tale
 
 p = argparse.ArgumentParser()
-p.add_argument("tale_java_output") # 位置引数fooを定義
+p.add_argument("tale_java_output")
 args = p.parse_args()
 
 data = tale_java.load(args.tale_java_output)
