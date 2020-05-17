@@ -8,4 +8,4 @@ args = p.parse_args()
 
 data = tajava.reader.tale.load(args.tale_java_output)
 for i_row, row in enumerate(data):
-    print(f'{i_row}: {row["simu"]["logE0"] = :.3f}, {row["recon"]["logE0"] = :.3f}')
+    print(f'{i_row}: row["simu"]["logE0"] = {row["simu"]["logE0"]:.3f}, row["recon"]["logE0"] = {row["recon"]["logE0"]:.3f}')
