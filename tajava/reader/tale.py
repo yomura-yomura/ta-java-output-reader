@@ -99,24 +99,26 @@ def load(fn, time_unit="us", distance_unit="km"):
                 buffer = buffer[7:]
 
             if buffer[0] == "0":
-                recon1.extend([invalid_value] * 7)
+                recon1.extend([invalid_value] * 6)
+                buffer = buffer[1:]
             else:
                 assert buffer[0] == "1"
-                # recon1.extend(buffer[1:8])
                 recon1.extend(buffer[1:7])
                 buffer = buffer[8:]
 
             if len(buffer) == 0:
                 recon2 = (
-                        [invalid_value] * 12 + [[invalid_value] * 2] + [[invalid_value] * BunchPhoton_numOfLightIndex] +
+                        [invalid_value] * 12 +
+                        [[invalid_value] * 2] +
+                        [[invalid_value] * BunchPhoton_numOfLightIndex] +
                         [invalid_value] +
                         [invalid_value] * 2
                 )
             else:
-                assert buffer[1] == buffer[6]
-                recon2 = [*buffer[:6], *buffer[7:13], buffer[13:15], buffer[15:15+BunchPhoton_numOfLightIndex]]
+                # assert buffer[1] == buffer[6]
+                recon2 = [buffer[0], *buffer[2:13], buffer[13:15], buffer[15:15+BunchPhoton_numOfLightIndex]]
                 buffer = buffer[15 + BunchPhoton_numOfLightIndex:]
-
+        
                 if len(buffer) == 2:
                     recon2.append(invalid_value)
                 else:
@@ -130,7 +132,7 @@ def load(fn, time_unit="us", distance_unit="km"):
                     buffer = buffer[2:]
 
                 assert len(buffer) == 0
-                
+
             yield *event_info, simu_data, (*recon1, *recon2)
 
     return np.fromiter(_generate(), data_type)
