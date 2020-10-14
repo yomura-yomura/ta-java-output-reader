@@ -40,12 +40,12 @@ data_type = [
         # ("GH_fit_chi2", "f4"),
 
         ("Rp", "f4"),
-        ("psi", "f4"),
         ("total_photons", "f4"),
         ("time_extent", "f4"),
         ("track_length", "f4"),
         # The number of PMTs (triggered?) at the brightest station.
         ("n_pmts", "f4"),  # Should be integer but there is no int-type nan for missing values.
+        ("psi", "f4"),
         ("psi_error", "f4"),
         ("core_distance", "f4"),
         ("core_distance_error", "f4"),
@@ -80,7 +80,8 @@ def load(fn, time_unit="us", distance_unit="km"):
             # Before 'simu' at position 6
             date, time = buffer[4:6]
             datetime = f"{date.replace('/', '-')}T{time}"  # To ISO format
-            event_info = (*buffer[:4], np.datetime64(datetime))
+            event_info = (buffer[-1], *buffer[1:4], np.datetime64(datetime))  # Remove null-strings if exists at first index
+            # event_info = (*buffer[:4], np.datetime64(datetime))
             buffer = buffer[7:]
 
             # Before 'trig' at position 18
@@ -104,7 +105,7 @@ def load(fn, time_unit="us", distance_unit="km"):
             else:
                 assert buffer[0] == "1"
                 recon1.extend(buffer[1:7])
-                buffer = buffer[8:]
+                buffer = buffer[8:]  # Skip ReconGHFitChi2
 
             if len(buffer) == 0:
                 recon2 = (
