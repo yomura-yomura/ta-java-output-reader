@@ -1,9 +1,36 @@
+"""
+Mono:   see TAFDReconstructor._printResultsSimple3
+Hybrid: see TAHybridReconstructor._printResultsSimple3
+"""
 import numpy as np
 
-invalid_value = np.nan
+
+def i_to_f(d):
+    if isinstance(d, list):
+        return [i_to_f(e) for e in d]
+    elif isinstance(d, tuple):
+        if isinstance(d[1], tuple):
+            return d[0], (i_to_f(d[1][0]), *d[1][1:])
+        else:
+            return d[0], i_to_f(d[1])
+    else:
+        dt = np.dtype(d)
+        return f"f{dt.alignment}" if dt.kind == "i" else d
+
+
+def get_mask_from(a: np.ndarray):
+    if a.dtype.names is None:
+        return np.isnan(a)
+    else:
+        return np.array(
+            list(zip(*(get_mask_from(a[col]) for col in a.dtype.names))),
+            np.ma.make_mask_descr(a.dtype)
+        )
+
+
 BunchPhoton_numOfLightIndex = 4
 
-data_type = [
+common_data_type = [
     ("detector_type", "i2"),
     ("fd_type", "i2"),
     ("part", "i4"),
@@ -28,7 +55,7 @@ data_type = [
         ("azimuth", "f4"),
         ("core_position", ("f4", 3)),
         ("chi2", "f4"),
-        ("ndf", "f4"),  # Should be integer?
+        ("ndf", "i4"),
         ("logE0", "f4"),
         ("logNmax", "f4"),
         ("Xmax", "f4"),
@@ -44,7 +71,7 @@ data_type = [
         ("time_extent", "f4"),
         ("track_length", "f4"),
         # The number of PMTs (triggered?) at the brightest station.
-        ("n_pmts", "f4"),  # Should be integer but there is no int-type nan for missing values.
+        ("n_pmts", "i4"),
         ("psi", "f4"),
         ("psi_error", "f4"),
         ("core_distance", "f4"),
@@ -54,23 +81,60 @@ data_type = [
         ("minimum_viewing_angle", "f4"),
         ("GH_fit_chi2", ("f4", 2)),
         ("total_photons_derived_from", ("f4", BunchPhoton_numOfLightIndex)),
-        ("n_saturated_pmts", "f4"),  # Should be integer
-        ("TripletHasFD", "f4"),  # Should be integer
-        ("TripletUseFD", "f4")  # Should be integer
+        ("n_saturated_pmts", "i4")
     ])
 ]
 
+mono_recon_extension = [
+    ("TripletHasFD", "i4"),
+    ("TripletUseFD", "i4")
+]
 
-def load(fn, time_unit="us", distance_unit="km"):
+hybrid_recon_extension = [
+    ("sd", [
+        ("sd_event_code", "i4"),
+        ("sd_trigger_mode", "i4"),
+        ("numOfTimeCluster", "i4"),
+        ("selected", [
+            ("sd_id", "i4"),
+            ("sdAveMip", "f4"),
+            ("sdDistAxis", "f4")
+        ]),
+        ("maximum_signal", [
+            ("sd_id", "i4"),
+            ("sdAveMip", "f4"),
+            ("sdDistAxis", "f4")
+        ])
+    ]),
+    # 4ring
+]
+
+invalid_common_data = np.full(1, np.nan, dtype=i_to_f(common_data_type))[0]
+
+import copy
+mono_data_type = copy.deepcopy(common_data_type)
+mono_data_type[-1] = ("recon", [*common_data_type[-1][1], *mono_recon_extension])
+
+hybrid_data_type = copy.deepcopy(common_data_type)
+hybrid_data_type[-1] = ("recon", [*common_data_type[-1][1], *hybrid_recon_extension])
+
+
+def load(fn, time_unit="us", distance_unit="km", mode="mono"):
     if time_unit == "us":
         pass
     else:
         raise ValueError(f"Unexpected time unit '{time_unit}'")
+
     if distance_unit == "km":
         pass
     else:
         raise ValueError(f"Unexpected distance unit '{distance_unit}'")
-    
+
+    if mode in ("mono", "hybrid"):
+        is_mono = mode == "mono"
+    else:
+        raise ValueError(f"Unexpected mode '{mode}' (mode must be 'mono' or 'hybrid')")
+
     def _generate():
         for line in open(fn, "r"):
             buffer = line.split()
@@ -79,13 +143,19 @@ def load(fn, time_unit="us", distance_unit="km"):
 
             # Before 'simu' at position 6
             date, time = buffer[4:6]
-            datetime = f"{date.replace('/', '-')}T{time}"  # To ISO format
-            event_info = (buffer[-1], *buffer[1:4], np.datetime64(datetime))  # Remove null-strings if exists at first index
+            # To ISO format
+            datetime = f"{date.replace('/', '-')}T{time}"
+            # Remove null-strings if exists at first index
+            event_info = (buffer[0], *buffer[1:4], np.datetime64(datetime))
             # event_info = (*buffer[:4], np.datetime64(datetime))
             buffer = buffer[7:]
 
             # Before 'trig' at position 18
-            simu_data = *buffer[:6], buffer[6:9], *buffer[9:11]
+            if all(e == "0" for e in buffer[0:11]):
+                # simu_data = tuple([np.nan] * 6 + [[np.nan] * 3] + [np.nan] * 2)
+                simu_data = invalid_common_data["simu"]
+            else:
+                simu_data = *buffer[:6], buffer[6:9], *buffer[9:11]
             buffer = buffer[11:]
 
             # After 'trig'
@@ -94,13 +164,13 @@ def load(fn, time_unit="us", distance_unit="km"):
             buffer = buffer[2:]
 
             if np.char.isdigit(buffer[0]) and buffer[0] in ("0", "1"):
-                recon1.extend([invalid_value] * 2 + [[invalid_value] * 3] + [invalid_value] * 2)
+                recon1.extend([np.nan] * 2 + [[np.nan] * 3] + [np.nan] * 2)
             else:
                 recon1.extend([*buffer[0:2], buffer[2:5], *buffer[5:7]])
                 buffer = buffer[7:]
 
             if buffer[0] == "0":
-                recon1.extend([invalid_value] * 6)
+                recon1.extend([np.nan] * 6)
                 buffer = buffer[1:]
             else:
                 assert buffer[0] == "1"
@@ -109,11 +179,11 @@ def load(fn, time_unit="us", distance_unit="km"):
 
             if len(buffer) == 0:
                 recon2 = (
-                        [invalid_value] * 12 +
-                        [[invalid_value] * 2] +
-                        [[invalid_value] * BunchPhoton_numOfLightIndex] +
-                        [invalid_value] +
-                        [invalid_value] * 2
+                        [np.nan] * 12 +
+                        [[np.nan] * 2] +
+                        [[np.nan] * BunchPhoton_numOfLightIndex] +
+                        [np.nan] +
+                        ([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
                 )
             else:
                 # assert buffer[1] == buffer[6]
@@ -121,19 +191,35 @@ def load(fn, time_unit="us", distance_unit="km"):
                 buffer = buffer[15 + BunchPhoton_numOfLightIndex:]
         
                 if len(buffer) == 2:
-                    recon2.append(invalid_value)
+                    recon2.append(np.nan)
                 else:
                     recon2.append(buffer[0])
                     buffer = buffer[1:]
 
-                if len(buffer) != 2:
-                    recon2.extend([invalid_value] * 2)
+                if is_mono:
+                    if len(buffer) != 2:
+                        recon2.extend([np.nan] * 2)
+                    else:
+                        recon2.extend(buffer[0:2])
+                        buffer = buffer[2:]
                 else:
-                    recon2.extend(buffer[0:2])
-                    buffer = buffer[2:]
-
+                    if len(buffer) < 9:
+                        recon2.append([np.nan] * 3 + [[np.nan] * 3] * 2)
+                    else:
+                        sd_info = []
+                        sd_info.extend(buffer[0:3])
+                        sd_info.append(tuple(buffer[3:6]))
+                        sd_info.append(tuple(buffer[6:9]))
+                        recon2.append(tuple(sd_info))
+                        buffer = buffer[9:]
+                        if len(buffer) == 4:
+                            # 4ring
+                            buffer = []
                 assert len(buffer) == 0
 
             yield *event_info, simu_data, (*recon1, *recon2)
 
-    return np.fromiter(_generate(), data_type)
+    data_type = mono_data_type if is_mono else hybrid_data_type
+    data = np.fromiter(_generate(), i_to_f(data_type))
+
+    return np.ma.MaskedArray(data, get_mask_from(data)).astype(data_type)
