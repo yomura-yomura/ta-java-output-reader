@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='tajava',
-    version='2.0',
+    version='3.0',
     description='',
     author='yomura',
     author_email='yomura@hoge.jp',

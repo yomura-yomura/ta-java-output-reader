@@ -80,7 +80,11 @@ common_data_type = [
         ("time_at_core_error", "f4"),
         ("minimum_viewing_angle", "f4"),
         ("GH_fit_chi2", ("f4", 2)),
-        ("total_photons_derived_from", ("f4", BunchPhoton_numOfLightIndex)),
+        # ("total_photons_derived_from", ("f4", BunchPhoton_numOfLightIndex)),
+        ("total_photons_derived_from", [
+            ("fluorescent", "f4"), ("direct_cherenkov", "f4"),
+            ("rayleigh-scattered_cherenkov", "f4"), ("mie-scattered_cherenkov", "f4")
+        ]),
         ("n_saturated_pmts", "i4")
     ])
 ]
@@ -181,13 +185,13 @@ def load(fn, time_unit="us", distance_unit="km", mode="mono"):
                 recon2 = (
                         [np.nan] * 12 +
                         [[np.nan] * 2] +
-                        [[np.nan] * BunchPhoton_numOfLightIndex] +
+                        [(np.nan,) * BunchPhoton_numOfLightIndex] +
                         [np.nan] +
                         ([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
                 )
             else:
                 # assert buffer[1] == buffer[6]
-                recon2 = [buffer[0], *buffer[2:13], buffer[13:15], buffer[15:15+BunchPhoton_numOfLightIndex]]
+                recon2 = [buffer[0], *buffer[2:13], buffer[13:15], tuple(buffer[15:15+BunchPhoton_numOfLightIndex])]
                 buffer = buffer[15 + BunchPhoton_numOfLightIndex:]
         
                 if len(buffer) == 2:
