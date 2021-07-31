@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
-import argparse
-import tajava.reader.tale
+import tajava.reader.fd.simple1
+import tajava.reader.fd.simple2
+import tajava.reader.fd.tubeinfo
 
-p = argparse.ArgumentParser()
-p.add_argument("tale_java_output")
-args = p.parse_args()
+simple1_data = tajava.reader.fd.simple1.load("fdrecon_result_simple1.dat", mode="hybrid")
+simple2_data = tajava.reader.fd.simple2.load("fdrecon_result_simple2.dat")
 
-data = tajava.reader.tale.load(args.tale_java_output)
-for i_row, row in enumerate(data):
-    print(
-        '{}: row["simu"]["logE0"] = {:.3f}, row["recon"]["logE0"] = {:.3f}'.format(
-            i_row,
-            row["simu"]["logE0"],
-            row["recon"]["logE0"]            
-        )
-    )
+pmt_info = tajava.reader.fd.tubeinfo.load("tubeInfo_talemono.dat")

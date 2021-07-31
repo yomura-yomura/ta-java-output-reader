@@ -1,8 +1,9 @@
 """
-Mono:   see TAFDReconstructor._printResultsSimple3
-Hybrid: see TAHybridReconstructor._printResultsSimple3
+see TAFDReconstructor._printResultsSimple3
 """
 import numpy as np
+import copy
+from . import _util
 
 
 def i_to_f(d):
@@ -31,12 +32,7 @@ def get_mask_from(a: np.ndarray):
 BunchPhoton_numOfLightIndex = 4
 
 common_data_type = [
-    ("detector_type", "i2"),
-    ("fd_type", "i2"),
-    ("part", "i4"),
-    ("event_number", "i4"),
-    ("t0", "M8[ns]"),
-
+    *_util.event_info_dtype_descr,
     ("simu", [
         ("logE0", "f4"),
         ("logNmax", "f4"),
@@ -115,7 +111,6 @@ hybrid_recon_extension = [
 
 invalid_common_data = np.full(1, np.nan, dtype=i_to_f(common_data_type))[0]
 
-import copy
 mono_data_type = copy.deepcopy(common_data_type)
 mono_data_type[-1] = ("recon", [*common_data_type[-1][1], *mono_recon_extension])
 
@@ -123,7 +118,7 @@ hybrid_data_type = copy.deepcopy(common_data_type)
 hybrid_data_type[-1] = ("recon", [*common_data_type[-1][1], *hybrid_recon_extension])
 
 
-def load(fn, time_unit="us", distance_unit="km", mode="mono"):
+def load(path, time_unit="us", distance_unit="km", mode="mono"):
     if time_unit == "us":
         pass
     else:
@@ -140,18 +135,19 @@ def load(fn, time_unit="us", distance_unit="km", mode="mono"):
         raise ValueError(f"Unexpected mode '{mode}' (mode must be 'mono' or 'hybrid')")
 
     def _generate():
-        for line in open(fn, "r"):
+        for line in open(path, "r"):
             buffer = line.split()
             assert buffer[-1] == "###"
             buffer = buffer[:-1]
 
             # Before 'simu' at position 6
-            date, time = buffer[4:6]
-            # To ISO format
-            datetime = f"{date.replace('/', '-')}T{time}"
-            # Remove null-strings if exists at first index
-            event_info = (buffer[0], *buffer[1:4], np.datetime64(datetime))
-            # event_info = (*buffer[:4], np.datetime64(datetime))
+            # date, time = buffer[4:6]
+            # # To ISO format
+            # datetime = f"{date.replace('/', '-')}T{time}"
+            # # Remove null-strings if exists at first index
+            # event_info = (buffer[0], *buffer[1:4], np.datetime64(datetime))
+            event_info = _util.parse_event_info(*buffer[:6])
+
             buffer = buffer[7:]
 
             # Before 'trig' at position 18
@@ -183,11 +179,11 @@ def load(fn, time_unit="us", distance_unit="km", mode="mono"):
 
             if len(buffer) == 0:
                 recon2 = (
-                        [np.nan] * 12 +
-                        [[np.nan] * 2] +
-                        [(np.nan,) * BunchPhoton_numOfLightIndex] +
-                        [np.nan] +
-                        ([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
+                    [np.nan] * 12 +
+                    [[np.nan] * 2] +
+                    [(np.nan,) * BunchPhoton_numOfLightIndex] +
+                    [np.nan] +
+                    ([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
                 )
             else:
                 # assert buffer[1] == buffer[6]
@@ -219,7 +215,9 @@ def load(fn, time_unit="us", distance_unit="km", mode="mono"):
                         if len(buffer) == 4:
                             # 4ring
                             buffer = []
-                assert len(buffer) == 0
+
+                if len(buffer) != 0:
+                    raise RuntimeError(f"Unexpected values: {buffer}")
 
             yield *event_info, simu_data, (*recon1, *recon2)
 

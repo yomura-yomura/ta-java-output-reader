@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import argparse
-import tajava.reader.tale
+import tajava.reader.fd.simple1
 
 p = argparse.ArgumentParser()
 p.add_argument("tale_java_output")
 args = p.parse_args()
 
-data = tajava.reader.tale.load(args.tale_java_output)
+data = tajava.reader.fd.simple1.load(args.tale_java_output)
 
 import plotly.express as px
 import numpy as np
