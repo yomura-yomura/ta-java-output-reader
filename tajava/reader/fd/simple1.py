@@ -50,8 +50,10 @@ common_data_type = [
         ("zenith", "f4"),
         ("azimuth", "f4"),
         ("core_position", ("f4", 3)),
-        ("chi2", "f4"),
-        ("ndf", "i4"),
+        ("timing_fit", [
+            ("chi2", "f4"),
+            ("ndf", "i4"),
+        ]),
         ("logE0", "f4"),
         ("logNmax", "f4"),
         ("Xmax", "f4"),
@@ -75,8 +77,11 @@ common_data_type = [
         ("time_at_core", "f4"),
         ("time_at_core_error", "f4"),
         ("minimum_viewing_angle", "f4"),
-        ("GH_fit_chi2", ("f4", 2)),
-        # ("total_photons_derived_from", ("f4", BunchPhoton_numOfLightIndex)),
+        # ("GH_fit_chi2", ("f4", 2)),
+        ("GH_fit", [
+            ("chi2", "f4"),
+            ("ndf", "i4")
+        ]),
         ("total_photons_derived_from", [
             ("fluorescent", "f4"), ("direct_cherenkov", "f4"),
             ("rayleigh-scattered_cherenkov", "f4"), ("mie-scattered_cherenkov", "f4")
@@ -164,13 +169,13 @@ def load(path, time_unit="us", distance_unit="km", mode="mono"):
             buffer = buffer[2:]
 
             if np.char.isdigit(buffer[0]) and buffer[0] in ("0", "1"):
-                recon1.extend([np.nan] * 2 + [[np.nan] * 3] + [np.nan] * 2)
+                recon1.extend([np.nan, np.nan, [np.nan, np.nan, np.nan], (np.nan, np.nan)])
             else:
-                recon1.extend([*buffer[0:2], buffer[2:5], *buffer[5:7]])
+                recon1.extend([*buffer[0:2], buffer[2:5], tuple(buffer[5:7])])
                 buffer = buffer[7:]
 
             if buffer[0] == "0":
-                recon1.extend([np.nan] * 6)
+                recon1.extend([np.nan] * 5 + [(np.nan,) * 2])
                 buffer = buffer[1:]
             else:
                 assert buffer[0] == "1"
@@ -178,16 +183,14 @@ def load(path, time_unit="us", distance_unit="km", mode="mono"):
                 buffer = buffer[8:]  # Skip ReconGHFitChi2
 
             if len(buffer) == 0:
-                recon2 = (
-                    [np.nan] * 12 +
-                    [[np.nan] * 2] +
-                    [(np.nan,) * BunchPhoton_numOfLightIndex] +
-                    [np.nan] +
-                    ([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
-                )
+                recon2 = [
+                    np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
+                    (np.nan, np.nan), (np.nan,) * BunchPhoton_numOfLightIndex, np.nan,
+                    *([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
+                ]
             else:
                 # assert buffer[1] == buffer[6]
-                recon2 = [buffer[0], *buffer[2:13], buffer[13:15], tuple(buffer[15:15+BunchPhoton_numOfLightIndex])]
+                recon2 = [buffer[0], *buffer[2:13], tuple(buffer[13:15]), tuple(buffer[15:15+BunchPhoton_numOfLightIndex])]
                 buffer = buffer[15 + BunchPhoton_numOfLightIndex:]
         
                 if len(buffer) == 2:
