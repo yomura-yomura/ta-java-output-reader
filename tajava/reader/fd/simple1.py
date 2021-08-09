@@ -70,6 +70,7 @@ common_data_type = [
         ("track_length", "f4"),
         # The number of PMTs (triggered?) at the brightest station.
         ("n_pmts", "i4"),
+
         ("psi", "f4"),
         ("psi_error", "f4"),
         ("core_distance", "f4"),
@@ -77,6 +78,7 @@ common_data_type = [
         ("time_at_core", "f4"),
         ("time_at_core_error", "f4"),
         ("minimum_viewing_angle", "f4"),
+
         # ("GH_fit_chi2", ("f4", 2)),
         ("GH_fit", [
             ("chi2", "f4"),
@@ -175,7 +177,7 @@ def load(path, time_unit="us", distance_unit="km", mode="mono"):
                 buffer = buffer[7:]
 
             if buffer[0] == "0":
-                recon1.extend([np.nan] * 5 + [(np.nan,) * 2])
+                recon1.extend([np.nan] * 6)
                 buffer = buffer[1:]
             else:
                 assert buffer[0] == "1"
@@ -184,13 +186,19 @@ def load(path, time_unit="us", distance_unit="km", mode="mono"):
 
             if len(buffer) == 0:
                 recon2 = [
-                    np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-                    (np.nan, np.nan), (np.nan,) * BunchPhoton_numOfLightIndex, np.nan,
-                    *([np.nan] * 2 if is_mono else [np.nan] * 3 + [[np.nan] * 3] * 2)
+                    np.nan, *(np.nan,) * 11, (np.nan, np.nan), (np.nan,) * BunchPhoton_numOfLightIndex,
+                    np.nan
                 ]
+                if is_mono:
+                    recon2.extend([np.nan] * 2)
+                else:
+                    recon2.append((*(np.nan,) * 3, (np.nan,) * 3, (np.nan,) * 3))
+
             else:
                 # assert buffer[1] == buffer[6]
-                recon2 = [buffer[0], *buffer[2:13], tuple(buffer[13:15]), tuple(buffer[15:15+BunchPhoton_numOfLightIndex])]
+                recon2 = [
+                    buffer[0], *buffer[2:13], tuple(buffer[13:15]), tuple(buffer[15:15+BunchPhoton_numOfLightIndex])
+                ]
                 buffer = buffer[15 + BunchPhoton_numOfLightIndex:]
         
                 if len(buffer) == 2:
@@ -207,13 +215,14 @@ def load(path, time_unit="us", distance_unit="km", mode="mono"):
                         buffer = buffer[2:]
                 else:
                     if len(buffer) < 9:
-                        recon2.append([np.nan] * 3 + [[np.nan] * 3] * 2)
+                        recon2.append((*(np.nan,) * 3, (np.nan,) * 3, (np.nan,) * 3))
                     else:
                         sd_info = []
                         sd_info.extend(buffer[0:3])
                         sd_info.append(tuple(buffer[3:6]))
                         sd_info.append(tuple(buffer[6:9]))
                         recon2.append(tuple(sd_info))
+
                         buffer = buffer[9:]
                         if len(buffer) == 4:
                             # 4ring

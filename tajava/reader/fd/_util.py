@@ -1,3 +1,5 @@
+__all__ = ["event_info_dtype_descr", "parse_event_info"]
+
 
 event_info_dtype_descr = [
     ("detector_type", "i2"),
